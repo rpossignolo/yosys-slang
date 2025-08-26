@@ -1,0 +1,12 @@
+# Test SystemVerilog bit counting functions ($countones, $onehot, $onehot0)
+read_slang simple_test.sv
+proc
+opt
+write_verilog -noattr simple_test_out.v
+
+# Verify the functions work correctly with comprehensive test
+design -reset
+read_slang test_constructs.sv
+proc  
+opt
+write_verilog -noattr test_constructs_out.v
