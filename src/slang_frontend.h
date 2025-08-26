@@ -28,6 +28,7 @@ namespace slang {
 		class Compilation;
 		class Symbol;
 		class Expression;
+		class CallExpression;
 		class SubroutineSymbol;
 		class InstanceSymbol;
 		class InstanceBodySymbol;
@@ -150,6 +151,9 @@ struct EvalContext {
 	// an assignment as a stand-in for a value implied by the context
 	// (instance output connection or inside pattern assignments)
 	RTLIL::SigSpec connection_lhs(ast::AssignmentExpression const &assign);
+
+	// Handle SystemVerilog bit counting functions: $countones, $onehot, $onehot0
+	RTLIL::SigSpec handle_bitcount_functions(const ast::CallExpression& call);
 
 	EvalContext(NetlistContext &netlist);
 	EvalContext(NetlistContext &netlist, ProceduralContext &procedural);

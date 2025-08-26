@@ -1752,9 +1752,20 @@ RTLIL::SigSpec EvalContext::operator()(ast::Expression const &expr)
 				require(expr, procedural != nullptr);
 				StatementVisitor(*procedural).handle_display(call);
 			} else if (call.isSystemCall()) {
-				require(expr, call.getSubroutineName() == "$signed" || call.getSubroutineName() == "$unsigned");
-				require(expr, call.arguments().size() == 1);
-				ret = (*this)(*call.arguments()[0]);
+				const auto func_name = call.getSubroutineName();
+				
+				if (func_name == "$signed" || func_name == "$unsigned") {
+					// Existing logic for type conversion functions
+					require(expr, call.arguments().size() == 1);
+					ret = (*this)(*call.arguments()[0]);
+				} else if (func_name == "$countones" || func_name == "$onehot" || func_name == "$onehot0") {
+					// New logic for bit counting functions
+					ret = handle_bitcount_functions(call);
+				} else {
+					// Error for unsupported system functions
+					netlist.add_diag(diag::LangFeatureUnsupported, expr.sourceRange);
+					goto error;
+				}
 			} else {
 				const auto &subr = *std::get<0>(call.subroutine);
 				if (procedural) {
@@ -1791,6 +1802,99 @@ error:
 done:
 	ast_invariant(expr, ret.size() == (int) expr.type->getBitstreamWidth());
 	return ret;
+}
+
+RTLIL::SigSpec EvalContext::handle_bitcount_functions(const ast::CallExpression& call)
+{
+	require(call, call.arguments().size() == 1);
+	const auto func_name = call.getSubroutineName();
+	
+	// Get input signal
+	RTLIL::SigSpec input_sig = (*this)(*call.arguments()[0]);
+	int input_width = input_sig.size();
+	
+	// Manual bit counting: sum all individual bits
+	// This matches what Yosys does internally for $countones
+	RTLIL::SigSpec count_result;
+	
+	if (input_width == 0) {
+		// Edge case: empty input
+		count_result = RTLIL::Const(0, call.type->getBitstreamWidth());
+	} else if (input_width == 1) {
+		// Single bit case
+		count_result = input_sig;
+	} else {
+		// Multi-bit case: create tree of adders
+		std::vector<RTLIL::SigSpec> bit_values;
+		for (int i = 0; i < input_width; i++) {
+			bit_values.push_back(input_sig.extract(i, 1));
+		}
+		
+		// Build adder tree
+		while (bit_values.size() > 1) {
+			std::vector<RTLIL::SigSpec> next_level;
+			for (size_t i = 0; i + 1 < bit_values.size(); i += 2) {
+				RTLIL::Cell* add_cell = netlist.canvas->addCell(netlist.new_id(), ID($add));
+				int width = std::max(bit_values[i].size(), bit_values[i+1].size()) + 1;
+				add_cell->setParam(ID(A_WIDTH), bit_values[i].size());
+				add_cell->setParam(ID(B_WIDTH), bit_values[i+1].size());
+				add_cell->setParam(ID(Y_WIDTH), width);
+				add_cell->setParam(ID(A_SIGNED), 0);
+				add_cell->setParam(ID(B_SIGNED), 0);
+				add_cell->setPort(ID(A), bit_values[i]);
+				add_cell->setPort(ID(B), bit_values[i+1]);
+				RTLIL::SigSpec sum = netlist.canvas->addWire(netlist.new_id(), width);
+				add_cell->setPort(ID(Y), sum);
+				next_level.push_back(sum);
+			}
+			// Handle odd number of elements
+			if (bit_values.size() % 2 == 1) {
+				next_level.push_back(bit_values.back());
+			}
+			bit_values = std::move(next_level);
+		}
+		count_result = bit_values[0];
+	}
+	
+	// Resize to expected output width
+	int output_width = call.type->getBitstreamWidth();
+	if (count_result.size() < output_width) {
+		count_result = {count_result, RTLIL::SigSpec(RTLIL::S0, output_width - count_result.size())};
+	} else if (count_result.size() > output_width) {
+		count_result = count_result.extract(0, output_width);
+	}
+	
+	if (func_name == "$countones") {
+		return count_result;
+	} else if (func_name == "$onehot") {
+		// Create comparison: count_result == 1
+		RTLIL::Cell* eq_cell = netlist.canvas->addCell(netlist.new_id(), ID($eq));
+		eq_cell->setParam(ID(A_WIDTH), output_width);
+		eq_cell->setParam(ID(B_WIDTH), output_width);
+		eq_cell->setParam(ID(Y_WIDTH), 1);
+		eq_cell->setParam(ID(A_SIGNED), 0);
+		eq_cell->setParam(ID(B_SIGNED), 0);
+		eq_cell->setPort(ID(A), count_result);
+		eq_cell->setPort(ID(B), RTLIL::Const(1, output_width));
+		RTLIL::SigSpec result = netlist.canvas->addWire(netlist.new_id(), 1);
+		eq_cell->setPort(ID(Y), result);
+		return result;
+	} else if (func_name == "$onehot0") {
+		// Create comparison: count_result <= 1
+		RTLIL::Cell* le_cell = netlist.canvas->addCell(netlist.new_id(), ID($le));
+		le_cell->setParam(ID(A_WIDTH), output_width);
+		le_cell->setParam(ID(B_WIDTH), output_width);
+		le_cell->setParam(ID(Y_WIDTH), 1);
+		le_cell->setParam(ID(A_SIGNED), 0);
+		le_cell->setParam(ID(B_SIGNED), 0);
+		le_cell->setPort(ID(A), count_result);
+		le_cell->setPort(ID(B), RTLIL::Const(1, output_width));
+		RTLIL::SigSpec result = netlist.canvas->addWire(netlist.new_id(), 1);
+		le_cell->setPort(ID(Y), result);
+		return result;
+	}
+	
+	log_abort(); // Should never reach here
 }
 
 RTLIL::SigSpec EvalContext::eval_signed(ast::Expression const &expr)
