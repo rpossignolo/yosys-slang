@@ -32,6 +32,7 @@
 #include "diag.h"
 #include "async_pattern.h"
 #include "variables.h"
+#include "interface_port_converter.h"
 
 namespace slang_frontend {
 
@@ -2732,6 +2733,8 @@ public:
 			detect_memories(body);
 			// add all internal wires before we enter the body
 			add_internal_wires(body);
+			// Convert interface ports to regular I/O ports for synthesis
+			yosys_slang::convertInterfacePortsToIO(netlist, body);
 			// Evaluate inline initializers on variables
 			initialize_var_init(body);
 			// Visit the body for the bulk of processing

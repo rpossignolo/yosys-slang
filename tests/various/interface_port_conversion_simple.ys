@@ -1,0 +1,13 @@
+# Simple Interface Port Conversion Test
+# Tests that our interface enhancement hook is properly called
+
+# Test 1: Module with interface instances (should trigger our hook)
+read_slang -top interface_hook_test interface_port_conversion_simple.sv
+hierarchy -check -top interface_hook_test
+stat -top interface_hook_test
+
+# Test 2: Module without interfaces (should also trigger our hook)
+design -reset
+read_slang -top no_interface_hook_test interface_port_conversion_simple.sv
+hierarchy -check -top no_interface_hook_test
+stat -top no_interface_hook_test

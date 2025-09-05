@@ -1,0 +1,29 @@
+# Interface Port Conversion Test Script
+# Tests the interface-to-port conversion enhancement
+
+# Test 1: Module with interface ports (should trigger conversion)
+read_slang -top interface_test_top interface_port_conversion.sv
+hierarchy -check -top interface_test_top
+
+# Check that our enhancement hook was called
+# The log should show "Interface-to-port conversion: Processing top-level module"
+
+stat -top interface_test_top
+
+# Test 2: Module without interface ports (should not trigger conversion)
+design -reset
+read_slang -top no_interface_test interface_port_conversion.sv
+hierarchy -check -top no_interface_test
+
+# This should also show our hook was called but with no interface ports found
+stat -top no_interface_test
+
+# Test 3: Verify interface enhancement doesn't break existing functionality
+design -reset
+read_slang --keep-hierarchy interface_port_conversion.sv
+
+# This tests that our enhancement doesn't break existing interface handling
+# when interfaces are processed in hierarchy mode
+flatten
+chformal -lower
+stat

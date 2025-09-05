@@ -472,6 +472,10 @@ struct NetlistContext : RTLILBuilder, public DiagnosticIssuer {
 	// Cache per-symbol Wire* pointers
 	Yosys::dict<const ast::Symbol*, RTLIL::Wire *> wire_cache;
 
+	// Interface port to regular wire mapping for synthesis
+	// Maps "interface_name.signal_name" to corresponding RTLIL::Wire*
+	std::unordered_map<std::string, RTLIL::Wire*> interface_port_mapping;
+
 	// With this flag set we will not elaborate this netlist; we set this when
 	// `scopes_remap` is incomplete due to errors in processing an instantiation
 	// of `realm`.

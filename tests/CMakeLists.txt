@@ -41,6 +41,10 @@ set(ALL_TESTS
     various/ignore_asserts.ys
     various/intf_array_naming.ys
     various/intf_w_hierarchy.ys
+    various/interface_port_conversion.ys
+    various/interface_port_conversion_simple.ys
+    various/interface_hook_demo.ys
+    various/interface_edge_cases.ys
     various/issue142.ys
     various/issue208.ys
     various/issue50.ys

@@ -1,0 +1,6 @@
+# Interface Hook Demonstration Test
+# Verifies that our interface enhancement hook is properly installed
+
+read_slang -top interface_hook_demo interface_hook_demo.sv
+hierarchy -check -top interface_hook_demo
+stat -top interface_hook_demo

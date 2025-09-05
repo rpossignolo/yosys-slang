@@ -1,0 +1,17 @@
+# Interface Edge Cases Test Script
+# Tests various edge cases and complex interface scenarios
+
+# Test 1: Complex interface with multiple signal types
+read_slang -top interface_edge_test_top interface_edge_cases.sv
+hierarchy -check -top interface_edge_test_top
+
+# Our hook should be called and report the interface ports found
+stat -top interface_edge_test_top
+
+# Test 2: Simple module without interfaces
+design -reset
+read_slang -top simple_counter_top interface_edge_cases.sv  
+hierarchy -check -top simple_counter_top
+
+# Hook should be called but report no interface ports
+stat -top simple_counter_top

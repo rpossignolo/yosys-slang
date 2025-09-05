@@ -25,6 +25,8 @@ add_library(yosys-slang ${LIBRARY_TYPE}
     diag.h
     initial_eval.cc
     initial_eval.h
+    interface_port_converter.cc
+    interface_port_converter.h
     memory.h
     naming.cc
     procedural.cc
